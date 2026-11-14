@@ -16,6 +16,7 @@ var ErrUnsorted = errors.New("diva: keys are not in ascending order")
 
 const (
 	defaultFingerprintBits = 8
+	maxFingerprintBits     = 32
 	defaultLoadFactor      = 0.95
 	defaultSeed            = 0x44495641 // "DIVA"
 
@@ -115,8 +116,9 @@ func New(opts ...Option) (*Filter, error) {
 	for _, opt := range opts {
 		opt(&c)
 	}
-	if c.fingerprintBits < 1 || c.fingerprintBits > 32 {
-		return nil, fmt.Errorf("diva: fingerprint bits must be between 1 and 32, got %d", c.fingerprintBits)
+	if c.fingerprintBits < 1 || c.fingerprintBits > maxFingerprintBits {
+		return nil, fmt.Errorf("diva: fingerprint bits must be between 1 and %d, got %d",
+			maxFingerprintBits, c.fingerprintBits)
 	}
 	if !(c.loadFactor >= 0.5 && c.loadFactor <= 0.99) {
 		return nil, fmt.Errorf("diva: load factor must be between 0.5 and 0.99, got %v", c.loadFactor)

@@ -2,6 +2,8 @@ package diva
 
 import (
 	"cmp"
+	"math/bits"
+	"slices"
 	"sort"
 )
 
@@ -128,20 +130,43 @@ func (s *store) run(q int) (start, end int) {
 	return s.firstUsed(prevSet(re, end-1)+1, end), end
 }
 
+// slotTops[w] has the top bit of each of the slots of w bits that fit in a
+// word. It lets the searches for an empty slot test a word's worth of slots
+// at a time.
+var slotTops = func() (tops [maxFingerprintBits + 2]uint64) {
+	for w := 1; w < len(tops); w++ {
+		for i := range 64 / w {
+			tops[w] |= 1 << (i*w + w - 1)
+		}
+	}
+	return tops
+}()
+
 // nextEmpty returns the first empty slot at or after i, or nslots.
 func (s *store) nextEmpty(i int) int {
-	n := int(s.nslots)
-	for i < n && s.slot(i) != 0 {
-		i = nextSet(s.runends(), i) + 1 // skip to the end of this run
+	w, n := int(s.width), int(s.nslots)
+	tops := slotTops[w]
+	for per := bits.OnesCount64(tops); i < n; i += per {
+		c := min(per, n-i)
+		t := tops & mask(c*w)
+		if z := zeroFields(getBits(s.words, s.slotPos(i), c*w), t, w); z != 0 {
+			// Slots are counted by their top bits below the first empty one.
+			return i + bits.OnesCount64(t&(z&-z-1))
+		}
 	}
-	return min(i, n)
+	return n
 }
 
 // emptyBelow returns the last empty slot in (floor, i], or -1.
 func (s *store) emptyBelow(i, floor int) int {
-	for ; i > floor; i-- {
-		if s.slot(i) == 0 {
-			return i
+	w := int(s.width)
+	tops := slotTops[w]
+	for per := bits.OnesCount64(tops); i > floor; i -= per {
+		c := min(per, i-floor)
+		t := tops & mask(c*w)
+		if z := zeroFields(getBits(s.words, s.slotPos(i-c+1), c*w), t, w); z != 0 {
+			last := uint64(1) << (63 - bits.LeadingZeros64(z))
+			return i - c + 1 + bits.OnesCount64(t&(last-1))
 		}
 	}
 	return -1
@@ -328,14 +353,14 @@ func (s *store) mayContainRange(l, r uint64) bool {
 func (s *store) appendEntries(dst []uint64) []uint64 {
 	w := int(s.width)
 	occ, re := s.occupieds(), s.runends()
-	q := nextSet(occ, 0)
-	for i, left := 0, int(s.count); left > 0; i++ {
-		if e := s.slot(i); e != 0 {
-			dst = append(dst, uint64(q)<<w|e)
-			left--
-		}
-		if testBit(re, i) {
-			q = nextSet(occ, q+1)
+	dst = slices.Grow(dst, int(s.count))
+	i, pos := 0, s.slotPos(0)
+	for q := nextSet(occ, 0); q < storeTarget; q = nextSet(occ, q+1) {
+		// The run of q is the used tail of the slots up to its run end.
+		for end := nextSet(re, i); i <= end; i, pos = i+1, pos+w {
+			if e := getBits(s.words, pos, w); e != 0 {
+				dst = append(dst, uint64(q)<<w|e)
+			}
 		}
 	}
 	return dst
@@ -343,44 +368,24 @@ func (s *store) appendEntries(dst []uint64) []uint64 {
 
 // load fills an empty store with entries, which must be sorted and number at
 // most nslots. Each run starts at the slot its quotient maps to, or right
-// after the previous run if that slot is taken.
+// after the previous run if that slot is taken, but never so late that the
+// entries still to come would not fit behind it.
 func (s *store) load(entries []uint64, quotients int) {
 	s.count = int32(len(entries))
 	w, n := int(s.width), int(s.nslots)
+	occ, re := s.occupieds(), s.runends()
 
-	var start, length [storeTarget]int32
-	runs, free := 0, 0
 	scale := n << 20 / quotients // maps a quotient to a slot without dividing
+	at := 0                      // first slot after the runs placed so far
 	for i := 0; i < len(entries); {
 		q := int(entries[i] >> w)
-		j := i + 1
-		for j < len(entries) && int(entries[j]>>w) == q {
-			j++
-		}
-		start[runs] = int32(max(free, q*scale>>20))
-		length[runs] = int32(j - i)
-		free = int(start[runs]) + j - i
-		runs++
-		i = j
-	}
-	// Runs that ran past the end of the array move back just far enough.
-	for r, limit := runs-1, n; r >= 0; r-- {
-		over := int(start[r]+length[r]) - limit
-		if over <= 0 {
-			break
-		}
-		start[r] -= int32(over)
-		limit = int(start[r])
-	}
-
-	occ, re := s.occupieds(), s.runends()
-	i := 0
-	for r := range runs {
-		setBit(occ, int(entries[i]>>w))
-		for at := int(start[r]); at < int(start[r]+length[r]); at++ {
-			s.setSlot(at, entries[i]&mask(w))
+		at = min(max(at, q*scale>>20), n-(len(entries)-i))
+		setBit(occ, q)
+		for pos := s.slotPos(at); i < len(entries) && int(entries[i]>>w) == q; pos += w {
+			setBits(s.words, pos, w, entries[i])
 			i++
+			at++
 		}
-		setBit(re, int(start[r]+length[r])-1)
+		setBit(re, at-1)
 	}
 }

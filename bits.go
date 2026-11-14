@@ -129,3 +129,12 @@ func selectBit(ws []uint64, k int) int {
 	}
 	return len(ws) << 6
 }
+
+// zeroFields reads x as fields of w bits and returns a word with the top bit
+// of every field that is zero. tops has the top bit of each field to look at.
+func zeroFields(x, tops uint64, w int) uint64 {
+	low := tops - tops>>uint(w-1) // every bit of those fields but the top one
+	// Adding low to the low bits of a field carries into its top bit exactly
+	// when one of them is set, and never beyond it.
+	return ^((x&low + low) | x) & tops
+}

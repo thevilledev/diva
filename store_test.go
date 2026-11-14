@@ -265,3 +265,47 @@ func TestStoreRemoveMostSpecific(t *testing.T) {
 		t.Error("remove found an entry of another quotient")
 	}
 }
+
+// TestEmptySlots checks the searches for an empty slot against a scan that
+// looks at one slot at a time.
+func TestEmptySlots(t *testing.T) {
+	for _, width := range []int{2, 5, 9, 17, 32, 33} {
+		r := rand.New(rand.NewPCG(uint64(width), 6))
+		for range 60 {
+			n := 1 + r.IntN(150)
+			s := newStore(width, n)
+			used := make([]bool, n)
+			density := r.Float64()
+			for i := range n {
+				if used[i] = r.Float64() < density; !used[i] {
+					continue
+				}
+				// Any non-zero value, among them a lone top or bottom bit.
+				s.setSlot(i, r.Uint64()&mask(width)&-uint64(r.IntN(2))|1<<r.IntN(width))
+			}
+
+			for i := range n + 1 {
+				want := i
+				for want < n && used[want] {
+					want++
+				}
+				if got := s.nextEmpty(i); got != want {
+					t.Fatalf("width %d, %d slots: nextEmpty(%d) = %d, want %d", width, n, i, got, want)
+				}
+			}
+			for i := -1; i < n; i++ {
+				floor := i - r.IntN(i+2)
+				want := i
+				for want > floor && used[want] {
+					want--
+				}
+				if want == floor {
+					want = -1
+				}
+				if got := s.emptyBelow(i, floor); got != want {
+					t.Fatalf("width %d, %d slots: emptyBelow(%d, %d) = %d, want %d", width, n, i, floor, got, want)
+				}
+			}
+		}
+	}
+}

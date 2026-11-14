@@ -161,3 +161,36 @@ func TestScan(t *testing.T) {
 		}
 	}
 }
+
+func TestZeroFields(t *testing.T) {
+	r := rand.New(rand.NewPCG(5, 5))
+	for w := 1; w <= 33; w++ {
+		for range 300 {
+			// Look at the first n fields only; the rest of x is noise.
+			n := 1 + r.IntN(64/w)
+			x := r.Uint64() &^ mask(n*w)
+			var tops, want uint64
+			for i := range n {
+				top := uint64(1) << (i*w + w - 1)
+				tops |= top
+				var field uint64
+				switch r.IntN(5) {
+				case 0:
+					want |= top
+				case 1:
+					field = 1
+				case 2:
+					field = 1 << (w - 1)
+				case 3:
+					field = mask(w)
+				default:
+					field = r.Uint64()&mask(w) | 1<<r.IntN(w)
+				}
+				x |= field << (i * w)
+			}
+			if got := zeroFields(x, tops, w); got != want {
+				t.Fatalf("zeroFields(%#x, %#x, %d) = %#x, want %#x", x, tops, w, got, want)
+			}
+		}
+	}
+}

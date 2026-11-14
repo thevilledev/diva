@@ -56,11 +56,11 @@ Uniformly random 8-byte keys on an Apple M1 Max with Go 1.27. Accuracy is for
 
 | Operation | Time |
 |---|---:|
-| `Build`, per key | 32 ns |
+| `Build`, per key | 26 ns |
 | `MayContain` | 115 ns |
 | `MayContainRange` | 75 to 150 ns |
-| `Insert` into a growing filter | 1.0 µs |
-| `Insert` plus `Delete` at a steady size | 0.5 µs |
+| `Insert` into a growing filter | 0.6 µs |
+| `Insert` plus `Delete` at a steady size | 0.45 µs |
 
 A filter that grows by inserts loses accuracy: the point FPR reaches about 5%
 when the default filter is filled entirely from empty. Rebuilding from the keys
