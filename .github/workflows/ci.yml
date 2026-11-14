@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    runs-on: avrea-ubuntu-latest-2-vcpu
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+          # There is no go.sum to key the cache on: the module has no
+          # dependencies.
+          cache-dependency-path: go.mod
+      - name: Check that go.mod is tidy
+        run: go mod tidy -diff
+      - name: Lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.15.0
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version:
+          - "1.24" # named in go.mod
+          - oldstable
+          - stable
+    runs-on: avrea-ubuntu-latest-2-vcpu
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache-dependency-path: go.mod
+      - name: Test
+        run: go test -count=1 -cover ./...
+      - name: Test with the race detector
+        run: go test -count=1 -race ./...
+      # Shared runners are too noisy to time anything on, so the benchmarks
+      # are only run once to show that they still work.
+      - name: Run every benchmark once
+        if: matrix.go-version == 'stable'
+        run: go test -run '^$' -bench . -benchtime 1x ./...
+      - name: Fuzz for 30 seconds
+        if: matrix.go-version == 'stable'
+        run: go test -run '^$' -fuzz FuzzFilter -fuzztime 30s .

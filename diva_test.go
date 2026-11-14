@@ -22,7 +22,8 @@ func newOracle() *oracle { return &oracle{counts: map[string]int{}} }
 func (o *oracle) add(k []byte) {
 	c := string(canon(k))
 	o.all = append(o.all, c)
-	if o.counts[c]++; o.counts[c] == 1 {
+	o.counts[c]++
+	if o.counts[c] == 1 {
 		i, _ := slices.BinarySearch(o.sorted, c)
 		o.sorted = slices.Insert(o.sorted, i, c)
 	}
@@ -33,7 +34,8 @@ func (o *oracle) removeAt(i int) []byte {
 	c := o.all[i]
 	o.all[i] = o.all[len(o.all)-1]
 	o.all = o.all[:len(o.all)-1]
-	if o.counts[c]--; o.counts[c] == 0 {
+	o.counts[c]--
+	if o.counts[c] == 0 {
 		delete(o.counts, c)
 		j, _ := slices.BinarySearch(o.sorted, c)
 		o.sorted = slices.Delete(o.sorted, j, j+1)
@@ -86,7 +88,7 @@ func verify(t *testing.T, f *Filter, o *oracle) {
 				t.Fatalf("false negative for range [%x, %x]", lo, key)
 			}
 		}
-		if i+1 < len(keys) && len(keys[i+1]) > 0 {
+		if i+1 < len(keys) && keys[i+1] != "" {
 			if hi := []byte(keys[i+1][:len(keys[i+1])-1]); bytes.Compare(key, hi) <= 0 && !f.MayContainRange(key, hi) {
 				t.Fatalf("false negative for range [%x, %x]", key, hi)
 			}
@@ -168,11 +170,11 @@ func churn(t *testing.T, f *Filter, o *oracle, r *rand.Rand, gen func(*rand.Rand
 	verify(t, f, o)
 }
 
-func mustNew(t testing.TB, opts ...Option) *Filter {
-	t.Helper()
+func mustNew(tb testing.TB, opts ...Option) *Filter {
+	tb.Helper()
 	f, err := New(opts...)
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	return f
 }

@@ -396,7 +396,7 @@ func (f *Filter) resize(s *sample, slots int) {
 }
 
 // recodeStore appends entries, recoded for span to, to dst.
-func (f *Filter) recodeStore(dst []uint64, entries []uint64, from origin, to span) []uint64 {
+func (f *Filter) recodeStore(dst, entries []uint64, from origin, to span) []uint64 {
 	for _, e := range entries {
 		dst = recode(dst, e, from, to, f.width)
 	}

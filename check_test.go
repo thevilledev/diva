@@ -2,6 +2,7 @@ package diva
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/bits"
 )
@@ -53,7 +54,7 @@ func (s *store) check(quotients int) error {
 	}
 	switch {
 	case inRun:
-		return fmt.Errorf("last run has no end")
+		return errors.New("last run has no end")
 	case q < storeTarget:
 		return fmt.Errorf("quotient %d is occupied but has no run", q)
 	case count != int(s.count):
@@ -70,7 +71,7 @@ func (f *Filter) check() error {
 			return fmt.Errorf("%d heads without a sample", len(f.heads))
 		}
 		if len(f.below)+len(f.above) != 0 {
-			return fmt.Errorf("buffered keys without a sample")
+			return errors.New("buffered keys without a sample")
 		}
 		return nil
 	}
@@ -87,7 +88,7 @@ func (f *Filter) check() error {
 		}
 		if i == last {
 			if s.store != nil {
-				return fmt.Errorf("last sample has a store")
+				return errors.New("last sample has a store")
 			}
 			break
 		}

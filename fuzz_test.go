@@ -23,6 +23,8 @@ func tinyKey(b byte) []byte {
 // inserts and deletes over tiny keys. It checks the filter's invariants and
 // the absence of false negatives after every step, and every possible range
 // at the end.
+//
+//nolint:thelper // replay is the test body: failures should report its lines.
 func replay(t *testing.T, data []byte) {
 	if len(data) == 0 {
 		return

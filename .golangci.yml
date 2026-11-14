@@ -1,0 +1,163 @@
+# Linters are enabled one by one, so that adding one is a deliberate act. The
+# selection favours correctness and clarity checks. Linters that dictate
+# layout or size (wsl, nlreturn, varnamelen, funlen, gocognit, mnd, ...) stay
+# off.
+
+version: "2"
+
+run:
+  tests: true
+
+linters:
+  default: none
+  enable:
+    # Correctness.
+    - asasalint
+    - bidichk
+    - copyloopvar
+    - durationcheck
+    - errcheck
+    - errorlint
+    - exptostd
+    - gocheckcompilerdirectives
+    - gosec
+    - govet
+    - ineffassign
+    - makezero
+    - nilerr
+    - nilnesserr
+    - reassign
+    - recvcheck
+    - staticcheck
+    - unused
+    - wastedassign
+
+    # Clarity.
+    - asciicheck
+    - dupword
+    - godot
+    - intrange
+    - misspell
+    - modernize
+    - nakedret
+    - nolintlint
+    - predeclared
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - whitespace
+
+    # Performance.
+    - perfsprint
+    - prealloc
+
+    # Hygiene.
+    - depguard
+    - gochecknoinits
+    - gocritic
+    - thelper
+    - tparallel
+    - usetesting
+
+  settings:
+    depguard:
+      rules:
+        # The package has no dependencies. Keep it that way.
+        main:
+          allow:
+            - $gostd
+            - github.com/thevilledev/diva
+
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        # Two results of different types need no names.
+        - unnamedResult
+
+    godot:
+      scope: declarations
+
+    gosec:
+      excludes:
+        # Integer conversions. The store packs quotients, slot counts and bit
+        # positions into narrow fields whose ranges are fixed by construction,
+        # which the check cannot see.
+        - G115
+
+    govet:
+      enable-all: true
+      disable:
+        # Fields are ordered for the reader, not for size.
+        - fieldalignment
+
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+
+    revive:
+      rules:
+        - name: blank-imports
+        - name: bool-literal-in-expr
+        - name: constant-logical-expr
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: defer
+        - name: dot-imports
+        - name: duplicated-imports
+        - name: early-return
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+        - name: identical-branches
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: modifies-value-receiver
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unnecessary-stmt
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: use-any
+        - name: useless-break
+        - name: var-declaration
+        - name: var-naming
+        - name: waitgroup-by-value
+
+  exclusions:
+    presets:
+      - comments
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gosec
+          - prealloc
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+issues:
+  # Report everything: a truncated list hides the tail of a new finding.
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -26,8 +26,8 @@ func (m *storeModel) insert(v uint64) {
 // covering returns the index of the most specific entry standing for the
 // full-length entry v, or -1.
 func (m *storeModel) covering(v uint64) int {
-	for i := len(m.entries) - 1; i >= 0; i-- {
-		if e := m.entries[i]; e>>m.width == v>>m.width && covers(e, v) {
+	for i, e := range slices.Backward(m.entries) {
+		if e>>m.width == v>>m.width && covers(e, v) {
 			return i
 		}
 	}
